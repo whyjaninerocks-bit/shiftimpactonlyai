@@ -1,19 +1,26 @@
 # Security
 
 ## Secret Handling
-- Supabase service key and any third-party API keys (Google Trends, Meta Ad Library — later) live in server-side environment variables only.
-- Never exposed to the frontend, never in client components, never in `NEXT_PUBLIC_*`.
+- Supabase connection string in server-side env only (SUPABASE_URL, SUPABASE_ANON_KEY)
+- Never expose service role key to frontend
+- API routes use anon key with RLS for v1 (permissive), service role only in backend migrations
 
 ## Permission Model
-- **v1 (demo-first)**: RLS enabled with permissive policies — all reads/writes open. No authentication required. App renders for anonymous visitors with seed data.
-- **Lock-down sprint**: Replace permissive policies with owner-scoped: `auth.uid() = user_id` on `campaigns` and `campaign_data_preferences`. Every query is scoped to the logged-in user's campaigns only.
-- Agent (later) inherits the user's permissions — it can only read/write campaigns the user owns.
+- **v1 (demo-first):** Permissive RLS — all tables readable/writable without login. Seeded demo rows render for anonymous visitors.
+- **Lock-down sprint:** Replace v1 policies with owner-scoped: `auth.uid() = user_id` on all tables. Campaigns and preferences only visible/editable by their owner.
+- Agent (when added) inherits the logged-in user's permissions via RLS — never elevated.
 
 ## Approved-Tools Rule
-- v1: no external tools used.
-- Later: only named, approved tools (`google_trends_fetch`, `meta_ad_library_fetch`, `category_benchmark_lookup`). Never raw `run_any` or `send_any`. Each tool has a defined input/output schema and is called through a controlled wrapper.
+- v1 has no agent tools. When added, agents use named tools only (`fetch_meta_ad_library`, `fetch_google_trends`, `fetch_category_benchmark`).
+- Never expose raw `run_any` or `send_any` capabilities.
+- Each tool has a fixed input schema and returns structured data.
 
 ## Audit Principle
-- Every preference save writes to `campaign_data_preferences` with `updated_at` timestamp.
-- Later: every mode change and every proxied data fetch is logged to an audit table with actor, campaign, signal, old/new mode, and timestamp.
-- Truth is server-derived: preferences are always read from Postgres, never from localStorage. A page refresh shows the same state on every device.
+- v1: No audit logging (manual mode selection only).
+- v2: Every preference save and every proxy data fetch logged with actor, action, campaign_id, signal_key, before/after values, tool used, timestamp.
+- Deletes are human-only and always logged.
+
+## Data Integrity
+- `UNIQUE(campaign_id)` on campaign_data_preferences prevents duplicate configs
+- signal_configs JSONB validated at app layer (mode must be confirmed/indexed/proxied; pct nullable unless mode=indexed)
+- Media Spend enforces indexed-minimum at app layer (mode cannot be proxied)

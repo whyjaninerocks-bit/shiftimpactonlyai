@@ -1,34 +1,30 @@
-# ShiftImpact OS — Proxy Mode: Data Source Configuration
+# ShiftImpact Data Source Configuration
 
 ## Problem
-Clients frequently refuse to share proprietary data (media spend, exact SOV, attribution outputs, platform analytics). The OS either breaks or returns misleading scores when data is missing. This creates a binary — full access or no intelligence — which is the #1 onboarding barrier.
+Strategy leads run campaign scoring modules that require proprietary client data (media spend, SOV, attribution). Clients often withhold this data, blocking onboarding and producing misleading scores when modules run on assumptions.
 
 ## Target User
-Strategy lead configuring a campaign at setup, with client input on what data they can share. The strategy lead sets a data source mode per signal; the client provides what they can.
+Strategy lead who configures campaigns with client input. They decide, per signal, whether the client has confirmed data, can provide directional estimates, or needs public-source proxies.
 
 ## Core Objects
-- **Campaign** — name, client, status.
-- **CampaignDataPreferences** — per-signal data source mode (Confirmed / Indexed / Proxied) plus indexed direction/pct inputs. One row per campaign.
+- **Campaign** — a client engagement with a name, client, brand, and status.
+- **Signal** — catalog entry (SOV, Save Rate, Share Rate, Branded Search, VCR, Retention, Attribution, Media Spend, Review Platform, AI Brand Visibility, Social Currency) with description, allowed modes, and proxy source.
+- **Campaign Data Preferences** — per-campaign configuration: each signal's mode (Confirmed / Indexed / Proxied), plus indexed direction + approximate %, and setup notes. One row per campaign.
 
-## MVP (v1) Checklist
-- [ ] Campaign list page (seeded, no login required)
-- [ ] Campaign detail page with Campaign Info section
-- [ ] Data Source Configuration section as second panel: 11 signal rows
-- [ ] Mode dropdown per signal (Confirmed / Indexed / Proxied); Media Spend excludes Proxied; 3 signals fixed Proxied
-- [ ] Dynamic sub-panel: Confirmed = source link; Indexed = direction + %; Proxied = read-only source name
-- [ ] Confidence weight displayed per signal (100% / 85% / 70%)
-- [ ] `GET /api/data-preferences?campaign_id=` returns preferences
-- [ ] `POST /api/data-preferences` upserts and persists
-- [ ] Changes survive reload (server-derived truth)
-- [ ] Empty state: new campaign defaults to all-confirmed
-- [ ] `lib/types.ts` — `DataMode`, `DataPreferences` types
-- [ ] `lib/data.ts` — `getDataPreferences()` getter
+## MVP (v1)
+- [ ] Campaigns render from seed data on the homepage (no login wall)
+- [ ] Campaign page shows Campaign Info, then Data Source Configuration, then placeholder for Brief
+- [ ] Per-signal rows with mode dropdown and dynamic sub-panels (Confirmed link, Indexed direction+pct, Proxied read-only source)
+- [ ] GET / POST endpoints upsert preferences to DB
+- [ ] Confidence multiplier applied: Confirmed 1.0, Indexed 0.85, Proxied 0.70 — adjusted score visible per signal
+- [ ] Mode badge per signal (✓Conf, ↕Index, ◎Prox)
+- [ ] Saving preferences persists to DB and UI reflects saved state on reload
 
-## Non-Goals (v1)
-- Computing/saving adjusted health scores (signal API route integration)
-- Auto-fetching proxied data (Google Trends, Meta Ad Library)
-- Confidence badges on module headers across the full app
-- Authentication / per-user isolation
+## Non-goals (v1)
+- Auto-fetching proxied data from public sources
+- Updating downstream signal API routes for multiplier propagation
+- Multi-user auth and per-user data isolation (later sprint)
+- FRAME Brief generation
 
 ## Success Criteria
-A strategy lead opens a campaign, switches SOV from Confirmed to Proxied, sees the confidence weight change to 70%, saves, reloads the page — the preference persists and the 70% label is still there.
+A visitor opens the campaign page without logging in, sees 11 signal rows pre-populated from saved preferences, changes SOV from Confirmed to Indexed, selects "Higher" + 15%, saves, reloads the page, and sees the saved Indexed mode with 15% and the adjusted confidence multiplier of 85% displayed.

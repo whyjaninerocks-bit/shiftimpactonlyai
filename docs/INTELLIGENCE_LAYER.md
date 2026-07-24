@@ -1,43 +1,40 @@
 # Intelligence Layer
 
-## Messy Input
-A client says: "We can share SOV directionally but not exact figures, we can't share media spend details, and we have no retention data." This is unstructured availability info the strategy lead translates into mode assignments.
+## Messy Inputs
+- Client provides directional estimates in plain language ("SOV is up maybe 15%")
+- Strategy lead translates to structured Indexed mode: direction=up, pct=15
+- Later: natural language input auto-parsed to mode/direction/pct
 
-## Auto-Structure (v2+)
-Future: parse client intake notes → suggest mode per signal.
-
+## Auto-Structure Schema (v2 input parsing)
 ```json
 {
-  "campaign_id": "uuid",
-  "suggested_modes": {
-    "sov": "indexed",
-    "save_rate": "confirmed",
-    "media_spend": "indexed",
-    "retention": "proxied"
-  },
-  "reasoning": "Client mentioned directional SOV, confirmed platform access, spend restrictions, no retention data."
+  "signal": "sov",
+  "parsed_mode": "indexed",
+  "direction": "up",
+  "pct": 15,
+  "confidence": 0.92,
+  "review_status": "unreviewed"
 }
 ```
 
 ## Events to Track
-- `data_mode_changed` — signal, old_mode, new_mode, campaign_id, user
-- `preferences_saved` — campaign_id, modes_snapshot, timestamp
-- `confidence_viewed` — campaign_id, signal, mode (for tracking which signals are most often proxied)
+- `preference_saved` — campaign_id, signal key, mode, timestamp
+- `mode_changed` — campaign_id, signal key, old_mode, new_mode
+- `confidence_calculated` — campaign_id, signal key, raw_score, multiplier, adjusted_score
 
-## Scoring Rules (deterministic — no AI needed)
-
-| Mode | Multiplier |
-|---|---|
-| Confirmed | 1.0 |
-| Indexed | 0.85 |
-| Proxied | 0.70 |
-
-`adjustedScore = Math.round(rawScore * multiplier)` — applied per signal module.
+## Scoring Rules (v1 — rule-based, no AI)
+- Confirmed → multiplier 1.00
+- Indexed → multiplier 0.85
+- Proxied → multiplier 0.70
+- `adjustedScore = rawScore × multiplier`
+- Signals with no saved preference default to Proxied (0.70)
+- Media Spend: indexed-only minimum (cannot be fully proxied)
+- Review Platform, AI Brand Visibility, Social Currency: always Proxied (auto-set, not user-configurable)
 
 ## What Gets Ranked
-- v1: nothing ranked — just displaying mode + weight per signal.
-- Later: campaigns ranked by overall confidence (avg of signal multipliers). Signals ranked by most-proxied to highlight data gaps.
+- Per-signal adjusted confidence score
+- Campaign-level aggregate confidence (average of all signal multipliers) — display only in v1
 
 ## v1 vs Later
-- **v1**: Display mode + confidence weight. No score computation.
-- **Later**: Apply multiplier in signal API routes. Store raw + adjusted. Auto-suggest modes from intake notes. Rank campaigns by confidence level.
+- **v1:** Manual mode selection, deterministic multiplier, display-only scores
+- **Later:** AI-parse client text to structured modes, auto-fetch proxied data, propagate multipliers to downstream scoring modules, confidence badge in module headers
