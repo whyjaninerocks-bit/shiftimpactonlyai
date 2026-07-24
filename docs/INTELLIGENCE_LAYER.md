@@ -1,40 +1,40 @@
 # Intelligence Layer
 
 ## Messy Inputs
-- Client provides directional estimates in plain language ("SOV is up maybe 15%")
-- Strategy lead translates to structured Indexed mode: direction=up, pct=15
-- Later: natural language input auto-parsed to mode/direction/pct
+- Client provides vague directional info: "SOV is up a bit" → parsed to `direction=higher, pct=~5`.
+- Confirmed data link could be a spreadsheet URL, dashboard screenshot, or agency email.
+- Mode choice may be inconsistent across signals (some confirmed, some proxied).
 
-## Auto-Structure Schema (v2 input parsing)
+## Auto-Structure Schema
 ```json
 {
   "signal": "sov",
-  "parsed_mode": "indexed",
-  "direction": "up",
-  "pct": 15,
-  "confidence": 0.92,
+  "mode": "indexed",
+  "direction": "higher",
+  "pct": 12,
+  "confidence_weight": 0.85,
+  "source": null,
   "review_status": "unreviewed"
 }
 ```
 
 ## Events to Track
-- `preference_saved` — campaign_id, signal key, mode, timestamp
-- `mode_changed` — campaign_id, signal key, old_mode, new_mode
-- `confidence_calculated` — campaign_id, signal key, raw_score, multiplier, adjusted_score
+- `mode_changed` — signal, old_mode, new_mode, actor
+- `preference_saved` — campaign_id, signals_changed[]
+- `score_recalculated` — campaign_id, raw_score, adjusted_score, dominant_mode
 
-## Scoring Rules (v1 — rule-based, no AI)
-- Confirmed → multiplier 1.00
-- Indexed → multiplier 0.85
-- Proxied → multiplier 0.70
-- `adjustedScore = rawScore × multiplier`
-- Signals with no saved preference default to Proxied (0.70)
-- Media Spend: indexed-only minimum (cannot be fully proxied)
-- Review Platform, AI Brand Visibility, Social Currency: always Proxied (auto-set, not user-configurable)
+## Scoring Rules (v1, rule-based)
+- `confirmed` → multiplier 1.0
+- `indexed` → multiplier 0.85
+- `proxied` → multiplier 0.70
+- `adjustedScore = Math.round(rawScore × modeWeight)`
+- Per-signal mode-weighted; campaign-level score = weighted average of signal scores.
+- Both raw + adjusted stored.
 
 ## What Gets Ranked
-- Per-signal adjusted confidence score
-- Campaign-level aggregate confidence (average of all signal multipliers) — display only in v1
+- Campaign health score adjusted for data confidence.
+- Signal-level confidence breakdown on campaign page.
 
 ## v1 vs Later
-- **v1:** Manual mode selection, deterministic multiplier, display-only scores
-- **Later:** AI-parse client text to structured modes, auto-fetch proxied data, propagate multipliers to downstream scoring modules, confidence badge in module headers
+- **v1**: manual mode selection, deterministic scoring, no AI.
+- **Later**: AI suggests mode based on data availability; auto-fetches proxied data from Meta Ad Library, Google Trends, review APIs; flags low-confidence campaigns.

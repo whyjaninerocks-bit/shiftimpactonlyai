@@ -1,36 +1,24 @@
 # Architecture
 
 ## Stack
-- **Frontend:** Next.js 14 App Router, React, TypeScript, Tailwind
-- **Backend:** Next.js API routes (GET/POST `/api/data-preferences`)
-- **Database:** Supabase (Postgres)
-- **Hosting:** Vercel
+Next.js (App Router) · Supabase (Postgres + RLS) · Vercel deploy.
 
-## What to Build Now
-- Campaigns table + seed data, signals catalog table, campaign_data_preferences table
-- Campaign list page (homepage) rendering seeded campaigns
-- Campaign detail page with Data Source Configuration section
-- Mode dropdowns + dynamic sub-panels per signal
-- GET/POST data-preferences API (upsert)
-- Confidence multiplier display
-
-## What to Build Later
-- Auth + per-user RLS owner policies
-- Auto-fetching proxied data (Meta Ad Library, Google Trends, benchmarks)
-- Downstream signal API route updates for multiplier
-- FRAME Brief generation
+## Build Now vs Later
+- **Now**: data preferences table, CRUD API, setup UI, confidence badge + adjusted score, demo seed.
+- **Later**: signal API routes apply multiplier; auto-fetch proxied data (Meta Ad Library, Google Trends, etc.); confidence badges across all module headers; per-user auth + RLS.
 
 ## Key User Action Flow
-1. Visitor opens campaign page → page loads signal catalog + saved preferences via GET
-2. Each signal row shows current mode (or default Proxied if no saved preference)
-3. User selects a mode → sub-panel renders (Confirmed link field, Indexed direction+pct, Proxied source label)
-4. User clicks Save → POST upserts `campaign_data_preferences` row
-5. Page reloads → GET returns saved state → UI reflects persisted modes and adjusted scores
+1. Strategy lead opens campaign page.
+2. Data Source Setup section loads preferences via `GET /api/data-preferences?campaign_id=`.
+3. Lead changes a signal's mode in dropdown.
+4. Sub-panel renders for that mode (link / direction+% / read-only source).
+5. Lead clicks Save → `POST /api/data-preferences` (upsert).
+6. UI re-reads, updates confidence badge + adjusted score.
 
 ## Layer Plan
-1. **Data:** Tables + constraints + seed rows — the app renders from DB, not mock data
-2. **App logic:** API routes for CRUD, mode-to-multiplier mapping, sub-panel rendering rules
-3. **Smart features (later):** Auto-fetch proxied sources, confidence badge propagation to scoring modules
+- **Data first**: `campaign_data_preferences` table with mode per signal, indexed direction/pct, constraints.
+- **App logic**: API routes for get/upsert; React UI with dynamic sub-panels; confidence weight math (`confirmed=1.0, indexed=0.85, proxied=0.70`).
+- **Smart features (later)**: auto-fetch proxied data from public APIs; AI-assisted mode suggestion based on available data.
 
-## Why the Core Runs Without AI
-The mode selection, sub-panel rendering, multiplier calculation, and persistence are pure deterministic logic. No AI is needed for v1 — a strategy lead manually selects modes and the system stores and scores them. AI auto-fetching is a later enhancement.
+## Why Core Works Without AI
+All mode selection, confidence weighting, and display are deterministic table reads + simple math. No LLM calls needed. The AI layer (later) only suggests modes or auto-fills proxied sources — the system runs fully without it.

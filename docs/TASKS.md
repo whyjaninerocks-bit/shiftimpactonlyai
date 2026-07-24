@@ -1,66 +1,51 @@
-# Tasks
+# Tasks & Sprints
 
-## Sprint 1 — Foundation & Core Engine
-**Goal:** DB tables, seed data, campaign page rendering data source config UI end-to-end.
-- [ ] Migration: create campaigns, signals, campaign_data_preferences tables with RLS
-- [ ] Seed 4 campaigns, 11 signals (catalog), 3 preference rows
-- [ ] `lib/types.ts` — add `DataMode` ('confirmed'|'indexed'|'proxied'), `SignalConfig`, `DataPreferences`
-- [ ] `lib/data.ts` — add `getDataPreferences(campaignId)`, `getSignals()`, `getCampaigns()`
-- [ ] Campaign list page (homepage) — renders seeded campaigns, no login wall
-- [ ] Campaign detail page — Campaign Info section + Data Source Configuration section
-- [ ] `DataSourceSetupSection.tsx` — 11 signal rows, mode dropdown, dynamic sub-panels:
-  - Confirmed: link-to-source text input
-  - Indexed: direction dropdown (Higher/Up, Same/Flat, Lower/Down) + approximate % input
-  - Proxied: read-only proxy source name from signals catalog
-  - Review Platform / AI Brand Visibility / Social Currency: locked to Proxied, not user-configurable
-  - Media Spend: Proxied option disabled (indexed minimum)
-- [ ] Mode badge per signal (✓Conf, ↕Index, ◎Prox with %)
-- [ ] GET `/api/data-preferences?campaign_id=` — returns saved preferences or defaults
-- [ ] POST `/api/data-preferences` — upserts preferences row
-- [ ] Save button persists to DB, reload reflects saved state
-- [ ] Confidence multiplier display: adjustedScore = rawScore × multiplier (use placeholder rawScore=100 for v1)
-- [ ] Handle loading (skeleton rows), empty (no saved prefs → all default Proxied), error (retry button)
+## Sprint 1 — Foundation + Core Engine
+- Create `campaigns` + `campaign_data_preferences` tables with seed data
+- Build `lib/types.ts` — `DataMode`, `DataPreferences`, `SignalConfig` types
+- Build `lib/data.ts` — `getDataPreferences()` getter + `upsertDataPreferences()` setter
+- Confidence weight constants + `calculateAdjustedScore()` utility
+- **DoD**: Table exists, types compile, getter returns seeded row, score math returns correct value.
 
-**Definition of Done:** Visitor opens campaign page without login, changes SOV to Indexed (Higher, 15%), saves, reloads, sees saved mode + 85% multiplier. No dead buttons.
+## Sprint 2 — API Routes
+- `GET /api/data-preferences?campaign_id=` — returns preferences or empty
+- `POST /api/data-preferences` — upsert with validation (mode constraints, direction/pct for indexed)
+- Error handling: 400 for invalid mode, 404 for missing campaign
+- **DoD**: GET returns seeded data; POST upserts and GET reflects change; invalid mode returns 400.
 
-→ **v1 functional milestone**
+## Sprint 3 — Data Source Setup UI (v1 functional milestone)
+- Campaign page layout with Data Source Setup as 2nd section
+- Per-signal row: name + description + mode dropdown + dynamic sub-panel
+- Confirmed sub-panel: source link input
+- Indexed sub-panel: direction dropdown (Higher/Same/Lower) + % input
+- Proxied sub-panel: read-only public source display
+- Media Spend: dropdown limited to confirmed/indexed
+- Review Platform / AI Brand Visibility / Social Currency: locked to proxied, dropdown disabled
+- Save button calls POST; re-fetches on success
+- Confidence badge per signal row
+- **DoD**: Strategy lead switches SOV to Indexed, enters Higher ~12%, saves, sees badge + adjusted score. Refresh preserves state. Empty/loading/error states handled.
 
-## Sprint 2 — Confidence Scoring Refinement
-**Goal:** Campaign-level aggregate confidence + UI polish.
-- [ ] Campaign-level aggregate confidence score (avg of all signal multipliers)
-- [ ] Visual indicator when aggregate < 0.80 (amber warning)
-- [ ] Signal reordering by confidence (lowest first toggle)
-- [ ] Setup notes textarea saved to DB
-- [ ] Export preferences as JSON (download button)
+## Sprint 4 — Polish + Adjusted Score Display
+- Campaign health score shows raw + adjusted with confidence note
+- Visual mode indicators (checkmark/up-down/proxy icons)
+- Empty state: no preferences yet → prompt to set up
+- Loading skeleton for preferences fetch
+- Error state: API failure → retry button
+- **DoD**: All five UI states (loading, empty, partial, error, ready) work. Adjusted score visible and labeled.
 
-**Definition of Done:** Campaign page shows aggregate confidence score; toggling sort reorders signals; notes persist on reload.
+## Sprint 5 — Lock It Down (auth + RLS)
+- Add Supabase auth (signup/login)
+- Replace permissive RLS with `auth.uid() = user_id` policies
+- Set `user_id` on create
+- Gate campaign creation behind login; existing demo rows visible read-only
+- **DoD**: New user signs up, creates campaign, sets preferences, refreshes — data persists and is isolated from other users.
 
-## Sprint 3 — Lock It Down
-**Goal:** Auth + per-user RLS owner policies.
-- [ ] Supabase Auth (email/password + magic link)
-- [ ] Login/signup pages
-- [ ] Replace v1 permissive RLS with owner-scoped policies (`auth.uid() = user_id`)
-- [ ] user_id populated on insert from session
-- [ ] Campaign list scoped to current user
-- [ ] Redirect unauthenticated users to /login (homepage no longer public)
-
-**Definition of Done:** New user signs up, creates a campaign, sets preferences, logs out, cannot see another user's campaigns.
-
-## Sprint 4 — Auto-Fetch Proxied Data
-**Goal:** Named tools fetch public-source proxy data.
-- [ ] `fetch_google_trends` tool for branded search
-- [ ] `fetch_meta_ad_library` tool for SOV
-- [ ] `fetch_category_benchmark` tool for save_rate, share_rate, vcr, retention
-- [ ] Store proxied value + source + confidence + review_status
-- [ ] Proxied sub-panel shows fetched value (read-only) with 'last fetched' timestamp
-- [ ] Audit log table + logging on each fetch
-
-**Definition of Done:** Proxied signals show auto-fetched data with source attribution; review_status defaults to 'unreviewed'.
-
-## Text Gantt
+## Gantt
 ```
-Sprint 1: [DB][UI][API][Core Engine]  ← v1 functional
-Sprint 2: [Confidence][Polish]
-Sprint 3: [Auth][RLS]
-Sprint 4: [Auto-Fetch][Audit]
+S1: Foundation        ████
+S2: API Routes        ████
+S3: Setup UI (v1)     ██████
+S4: Polish            ████
+S5: Lock Down         ████
 ```
+**v1 functional**: end of Sprint 3 — success scenario usable without login.

@@ -1,47 +1,57 @@
 # Data Model
 
-## campaigns
-- `id` uuid PK
-- `user_id` uuid nullable (owner scope later)
-- `name` text not null
-- `client_name` text
-- `brand_name` text
-- `status` text default 'active'
-- `created_at` timestamptz
+## Table: `campaign_data_preferences`
 
-## signals
-- `id` uuid PK
-- `user_id` uuid nullable
-- `key` text not null unique (e.g. 'sov', 'save_rate')
-- `name` text not null (display name)
-- `description` text
-- `proxy_source` text (e.g. 'Meta Ad Library + social listening')
-- `allows_confirmed` boolean default true
-- `allows_indexed` boolean default true
-- `allows_proxied` boolean default true
-- `sort_order` int default 0
-- `created_at` timestamptz
+| Field | Type | Notes |
+|---|---|---|
+| `id` | uuid PK | `gen_random_uuid()` |
+| `user_id` | uuid nullable | owner-scoping (later) |
+| `campaign_id` | uuid | unique, FK to campaigns |
+| `mode_sov` | text | confirmed / indexed / proxied |
+| `mode_save_rate` | text | confirmed / indexed / proxied |
+| `mode_share_rate` | text | confirmed / indexed / proxied |
+| `mode_branded_search` | text | confirmed / indexed / proxied |
+| `mode_vcr` | text | confirmed / indexed / proxied |
+| `mode_retention` | text | confirmed / indexed / proxied |
+| `mode_attribution` | text | confirmed / indexed / proxied |
+| `mode_media_spend` | text | confirmed / indexed only |
+| `mode_review_platform` | text | always `proxied` (locked) |
+| `mode_ai_brand_visibility` | text | always `proxied` (locked) |
+| `mode_social_currency` | text | always `proxied` (locked) |
+| `indexed_sov_direction` | text | higher / same / lower |
+| `indexed_sov_pct` | numeric | approximate % |
+| `indexed_save_rate_direction` | text | higher / same / lower |
+| `indexed_save_rate_pct` | numeric | |
+| `indexed_share_rate_direction` | text | |
+| `indexed_share_rate_pct` | numeric | |
+| `indexed_branded_search_direction` | text | |
+| `indexed_branded_search_pct` | numeric | |
+| `indexed_vcr_direction` | text | |
+| `indexed_vcr_pct` | numeric | |
+| `indexed_retention_direction` | text | |
+| `indexed_retention_pct` | numeric | |
+| `indexed_attribution_direction` | text | |
+| `indexed_attribution_pct` | numeric | |
+| `indexed_media_spend_direction` | text | |
+| `indexed_media_spend_pct` | numeric | |
+| `setup_notes` | text | free-text |
+| `confirmed_source_links` | jsonb | map signal→URL for confirmed mode |
+| `created_at` | timestamptz | default now() |
+| `updated_at` | timestamptz | default now() |
 
-## campaign_data_preferences
-- `id` uuid PK
-- `user_id` uuid nullable
-- `campaign_id` uuid not null (UNIQUE)
-- `signal_configs` jsonb not null default '{}' — stores per-signal config:
-  ```json
-  { "sov": {"mode": "indexed", "direction": "up", "pct": 15},
-    "save_rate": {"mode": "proxied", "direction": null, "pct": null} }
-  ```
-- `setup_notes` text
-- `created_at` timestamptz
-- `updated_at` timestamptz
+## Table: `campaigns` (minimal, for FK)
+| Field | Type | Notes |
+|---|---|---|
+| `id` | uuid PK | |
+| `user_id` | uuid nullable | owner-scoping (later) |
+| `name` | text | campaign name |
+| `client_name` | text | |
+| `health_score` | numeric | raw score 0–100 |
+| `created_at` | timestamptz | default now() |
 
-## Relationships
-- campaign_data_preferences.campaign_id → campaigns.id (1:1, unique)
-- signals is a static catalog; signalConfigs references signals by `key`
+## AI-Generated Fields
+None in v1. Later: auto-fetched proxied data will carry `value` + `source` + `confidence` + `review_status`.
 
-## RLS Notes
-- v1: permissive policies (select/insert/update for all) — demo-first, no login wall
-- Later: owner-scoped policies (`auth.uid() = user_id`) replace v1 policies
-
-## AI Fields
-- No AI-generated fields in v1. When auto-fetching is added later, proxied values will store `value` + `source` text + `confidence` numeric + `review_status` text default 'unreviewed'.
+## RLS / Permissions
+- v1: permissive (demo-first, no login wall).
+- Later: `auth.uid() = user_id` on both tables.

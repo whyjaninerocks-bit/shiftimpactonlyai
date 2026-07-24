@@ -1,26 +1,25 @@
 # Security
 
 ## Secret Handling
-- Supabase connection string in server-side env only (SUPABASE_URL, SUPABASE_ANON_KEY)
-- Never expose service role key to frontend
-- API routes use anon key with RLS for v1 (permissive), service role only in backend migrations
+- Supabase keys in env vars only (`NEXT_PUBLIC_SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`).
+- Service-role key server-side only; never imported in client components.
+- No third-party API keys (Meta Ad Library, Google Trends) in v1.
 
 ## Permission Model
-- **v1 (demo-first):** Permissive RLS — all tables readable/writable without login. Seeded demo rows render for anonymous visitors.
-- **Lock-down sprint:** Replace v1 policies with owner-scoped: `auth.uid() = user_id` on all tables. Campaigns and preferences only visible/editable by their owner.
-- Agent (when added) inherits the logged-in user's permissions via RLS — never elevated.
+- **v1 (demo-first)**: permissive RLS — all reads/writes open; no login wall. Seeded demo rows render for anonymous visitors.
+- **Lock-down sprint**: `auth.uid() = user_id` on `campaigns` and `campaign_data_preferences`. Only owner can read/write their campaigns.
+- Agent (later) inherits the logged-in user's permissions — never runs as service-role for user actions.
 
 ## Approved-Tools Rule
-- v1 has no agent tools. When added, agents use named tools only (`fetch_meta_ad_library`, `fetch_google_trends`, `fetch_category_benchmark`).
-- Never expose raw `run_any` or `send_any` capabilities.
-- Each tool has a fixed input schema and returns structured data.
+- Agent may only call named tools (listed in Agentic Layer doc).
+- No raw `run_any` / `send_any` / arbitrary SQL execution.
+- Every agentic action logged to audit table.
 
 ## Audit Principle
-- v1: No audit logging (manual mode selection only).
-- v2: Every preference save and every proxy data fetch logged with actor, action, campaign_id, signal_key, before/after values, tool used, timestamp.
-- Deletes are human-only and always logged.
+- Every mode change, preference save, and score recalculation is logged with actor + timestamp + old/new values.
+- Audit log survives refresh; stored in Postgres, not client state.
 
 ## Data Integrity
-- `UNIQUE(campaign_id)` on campaign_data_preferences prevents duplicate configs
-- signal_configs JSONB validated at app layer (mode must be confirmed/indexed/proxied; pct nullable unless mode=indexed)
-- Media Spend enforces indexed-minimum at app layer (mode cannot be proxied)
+- `campaign_id` unique on `campaign_data_preferences` — one preferences row per campaign.
+- Mode constraints enforced at DB level via CHECK constraints where possible; UI prevents invalid combos.
+- Review Platform / AI Brand Visibility / Social Currency locked to `proxied` (default + UI disabled).

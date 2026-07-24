@@ -3,86 +3,69 @@ create table if not exists campaigns (
   user_id uuid,
   name text not null,
   client_name text,
-  brand_name text,
-  status text default 'active',
+  health_score numeric default 0,
   created_at timestamptz not null default now()
 );
+
 alter table campaigns enable row level security;
 drop policy if exists "campaigns_v1_read" on campaigns;
 create policy "campaigns_v1_read" on campaigns for select using (true);
 drop policy if exists "campaigns_v1_write" on campaigns;
 create policy "campaigns_v1_write" on campaigns for all using (true) with check (true);
 
-create table if not exists signals (
-  id uuid primary key default gen_random_uuid(),
-  user_id uuid,
-  key text not null unique,
-  name text not null,
-  description text,
-  proxy_source text,
-  allows_confirmed boolean default true,
-  allows_indexed boolean default true,
-  allows_proxied boolean default true,
-  sort_order int default 0,
-  created_at timestamptz not null default now()
-);
-alter table signals enable row level security;
-drop policy if exists "signals_v1_read" on signals;
-create policy "signals_v1_read" on signals for select using (true);
-drop policy if exists "signals_v1_write" on signals;
-create policy "signals_v1_write" on signals for all using (true) with check (true);
-
 create table if not exists campaign_data_preferences (
   id uuid primary key default gen_random_uuid(),
   user_id uuid,
-  campaign_id uuid not null,
-  signal_configs jsonb not null default '{}',
+  campaign_id uuid unique not null references campaigns(id) on delete cascade,
+  mode_sov text default 'confirmed' check (mode_sov in ('confirmed','indexed','proxied')),
+  mode_save_rate text default 'confirmed' check (mode_save_rate in ('confirmed','indexed','proxied')),
+  mode_share_rate text default 'confirmed' check (mode_share_rate in ('confirmed','indexed','proxied')),
+  mode_branded_search text default 'confirmed' check (mode_branded_search in ('confirmed','indexed','proxied')),
+  mode_vcr text default 'confirmed' check (mode_vcr in ('confirmed','indexed','proxied')),
+  mode_retention text default 'confirmed' check (mode_retention in ('confirmed','indexed','proxied')),
+  mode_attribution text default 'confirmed' check (mode_attribution in ('confirmed','indexed','proxied')),
+  mode_media_spend text default 'confirmed' check (mode_media_spend in ('confirmed','indexed')),
+  mode_review_platform text default 'proxied' check (mode_review_platform = 'proxied'),
+  mode_ai_brand_visibility text default 'proxied' check (mode_ai_brand_visibility = 'proxied'),
+  mode_social_currency text default 'proxied' check (mode_social_currency = 'proxied'),
+  indexed_sov_direction text check (indexed_sov_direction in ('higher','same','lower')),
+  indexed_sov_pct numeric,
+  indexed_save_rate_direction text check (indexed_save_rate_direction in ('higher','same','lower')),
+  indexed_save_rate_pct numeric,
+  indexed_share_rate_direction text check (indexed_share_rate_direction in ('higher','same','lower')),
+  indexed_share_rate_pct numeric,
+  indexed_branded_search_direction text check (indexed_branded_search_direction in ('higher','same','lower')),
+  indexed_branded_search_pct numeric,
+  indexed_vcr_direction text check (indexed_vcr_direction in ('higher','same','lower')),
+  indexed_vcr_pct numeric,
+  indexed_retention_direction text check (indexed_retention_direction in ('higher','same','lower')),
+  indexed_retention_pct numeric,
+  indexed_attribution_direction text check (indexed_attribution_direction in ('higher','same','lower')),
+  indexed_attribution_pct numeric,
+  indexed_media_spend_direction text check (indexed_media_spend_direction in ('higher','same','lower')),
+  indexed_media_spend_pct numeric,
   setup_notes text,
+  confirmed_source_links jsonb default '{}'::jsonb,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
-create unique index if not exists campaign_data_preferences_campaign_id_idx on campaign_data_preferences(campaign_id);
+
 alter table campaign_data_preferences enable row level security;
 drop policy if exists "campaign_data_preferences_v1_read" on campaign_data_preferences;
 create policy "campaign_data_preferences_v1_read" on campaign_data_preferences for select using (true);
 drop policy if exists "campaign_data_preferences_v1_write" on campaign_data_preferences;
 create policy "campaign_data_preferences_v1_write" on campaign_data_preferences for all using (true) with check (true);
 
-insert into campaigns (id, name, client_name, brand_name, status) values
-  ('a0000000-0000-4000-8000-000000000001', 'Q4 Holiday Push 2024', 'Acme Retail Group', 'Acme', 'active'),
-  ('a0000000-0000-4000-8000-000000000002', 'Spring Brand Lift Study', 'Northwind Foods', 'Northwind', 'active'),
-  ('a0000000-0000-4000-8000-000000000003', 'Always-On Performance', 'Globex Tech', 'Globex', 'active'),
-  ('a0000000-0000-4000-8000-000000000004', 'Back-to-School Launch', 'Stark Apparel', 'Stark', 'active')
-  on conflict do nothing;
+insert into campaigns (id, name, client_name, health_score) values
+  ('a1111111-1111-1111-1111-111111111111', 'Q4 Brand Launch', 'Nova Beverages', 78),
+  ('b2222222-2222-2222-2222-222222222222', 'Summer App Install Drive', 'FitKit', 64),
+  ('c3333333-3333-3333-3333-333333333333', 'Always-On Retail', 'GreenLeaf Co.', 82),
+  ('d4444444-4444-4444-4444-444444444444', 'Holiday Consideration', 'Atlas Travel', 71)
+on conflict (id) do nothing;
 
-insert into signals (key, name, description, proxy_source, allows_confirmed, allows_indexed, allows_proxied, sort_order) values
-  ('sov', 'SOV', 'Share of Voice in category', 'Meta Ad Library + social listening', true, true, true, 1),
-  ('save_rate', 'Save Rate', 'Percentage of users who save content', 'Category benchmark', true, true, true, 2),
-  ('share_rate', 'Share Rate', 'Percentage of users who share content', 'Category benchmark', true, true, true, 3),
-  ('branded_search', 'Branded Search', 'Branded search query volume', 'Google Trends', true, true, true, 4),
-  ('vcr', 'VCR', 'View Completion Rate for video assets', 'Category benchmark', true, true, true, 5),
-  ('retention', 'Retention', 'D7/D30 user retention', 'App category benchmark', true, true, true, 6),
-  ('attribution', 'Attribution', 'Multi-touch attribution data', 'Baseline delta', true, true, true, 7),
-  ('media_spend', 'Media Spend', 'Total media investment by channel', null, true, true, false, 8),
-  ('review_platform', 'Review Platform', 'Public review platform ratings', 'Always public (auto-proxied)', false, false, true, 9),
-  ('ai_brand_visibility', 'AI Brand Visibility', 'Brand mention frequency in AI tools', 'Always public (auto-proxied)', false, false, true, 10),
-  ('social_currency', 'Social Currency', 'Social engagement quality score', 'Always public (auto-proxied)', false, false, true, 11)
-  on conflict (key) do nothing;
-
-insert into campaign_data_preferences (campaign_id, signal_configs, setup_notes) values
-  ('a0000000-0000-4000-8000-000000000001',
-   '{"sov":{"mode":"indexed","direction":"up","pct":15},"save_rate":{"mode":"confirmed","direction":null,"pct":null},"share_rate":{"mode":"proxied","direction":null,"pct":null},"branded_search":{"mode":"indexed","direction":"up","pct":8},"vcr":{"mode":"confirmed","direction":null,"pct":null},"retention":{"mode":"proxied","direction":null,"pct":null},"attribution":{"mode":"indexed","direction":"flat","pct":0},"media_spend":{"mode":"confirmed","direction":null,"pct":null},"review_platform":{"mode":"proxied","direction":null,"pct":null},"ai_brand_visibility":{"mode":"proxied","direction":null,"pct":null},"social_currency":{"mode":"proxied","direction":null,"pct":null}}',
-   'Client provided SOV direction and confirmed VCR. Remaining signals proxied or indexed pending data.')
-  on conflict do nothing;
-
-insert into campaign_data_preferences (campaign_id, signal_configs, setup_notes) values
-  ('a0000000-0000-4000-8000-000000000002',
-   '{"sov":{"mode":"proxied","direction":null,"pct":null},"save_rate":{"mode":"proxied","direction":null,"pct":null},"share_rate":{"mode":"proxied","direction":null,"pct":null},"branded_search":{"mode":"indexed","direction":"down","pct":5},"vcr":{"mode":"proxied","direction":null,"pct":null},"retention":{"mode":"indexed","direction":"up","pct":12},"attribution":{"mode":"proxied","direction":null,"pct":null},"media_spend":{"mode":"indexed","direction":"same","pct":0},"review_platform":{"mode":"proxied","direction":null,"pct":null},"ai_brand_visibility":{"mode":"proxied","direction":null,"pct":null},"social_currency":{"mode":"proxied","direction":null,"pct":null}}',
-   'Client withheld most data. Using public sources and directional estimates only.')
-  on conflict do nothing;
-
-insert into campaign_data_preferences (campaign_id, signal_configs, setup_notes) values
-  ('a0000000-0000-4000-8000-000000000003',
-   '{"sov":{"mode":"confirmed","direction":null,"pct":null},"save_rate":{"mode":"confirmed","direction":null,"pct":null},"share_rate":{"mode":"confirmed","direction":null,"pct":null},"branded_search":{"mode":"confirmed","direction":null,"pct":null},"vcr":{"mode":"confirmed","direction":null,"pct":null},"retention":{"mode":"indexed","direction":"up","pct":20},"attribution":{"mode":"confirmed","direction":null,"pct":null},"media_spend":{"mode":"confirmed","direction":null,"pct":null},"review_platform":{"mode":"proxied","direction":null,"pct":null},"ai_brand_visibility":{"mode":"proxied","direction":null,"pct":null},"social_currency":{"mode":"proxied","direction":null,"pct":null}}',
-   'Full data sharing client. All signals confirmed except retention (indexed).')
-  on conflict do nothing;
+insert into campaign_data_preferences (campaign_id, mode_sov, mode_save_rate, mode_branded_search, mode_attribution, mode_media_spend, indexed_sov_direction, indexed_sov_pct, setup_notes, confirmed_source_links) values
+  ('a1111111-1111-1111-1111-111111111111', 'confirmed', 'confirmed', 'confirmed', 'confirmed', 'confirmed', null, null, 'All data confirmed via agency dashboard.', '{"sov":"https://agency.example.com/nova-sov","save_rate":"https://ads.facebook.com/nova-saves"}'::jsonb),
+  ('b2222222-2222-2222-2222-222222222222', 'indexed', 'indexed', 'proxied', 'indexed', 'indexed', 'higher', 15, 'Client provided directional input for most signals.', '{}'::jsonb),
+  ('c3333333-3333-3333-3333-333333333333', 'confirmed', 'confirmed', 'confirmed', 'confirmed', 'confirmed', null, null, 'Full confirmed data from internal team.', '{}'::jsonb),
+  ('d4444444-4444-4444-4444-444444444444', 'proxied', 'proxied', 'indexed', 'proxied', 'indexed', 'higher', 8, 'Minimal client data; relying on public sources.', '{}'::jsonb)
+on conflict (campaign_id) do nothing;
