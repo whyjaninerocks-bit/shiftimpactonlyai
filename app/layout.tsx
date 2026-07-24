@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "vibe-stack-supabase",
-  description: "Next.js + Supabase starter",
+  title: "ShiftImpact OS",
+  description: "Campaign data source configuration",
 };
 
 export default function RootLayout({
